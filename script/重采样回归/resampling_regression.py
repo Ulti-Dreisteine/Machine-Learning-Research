@@ -30,7 +30,7 @@ from util import build_tree, rand_x_values, search_nns, cal_alpha, cal_knn_prob_
 import sys
 import os
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), "../" * 2))
+BASE_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), "../" * 3))
 sys.path.insert(0, BASE_DIR)
 
 from setting import plt
@@ -176,10 +176,12 @@ if __name__ == "__main__":
     plt.fill_between(Y_norm.flatten(), Y_pdfs.flatten(), alpha=0.6, label="original", color="b")
     plt.fill_between(Y_rs.flatten(), pdfs_rs.flatten(), alpha=0.6, label="resampled", color="r")
     plt.plot(
-        Y_norm.flatten(), np.full_like(Y_norm.flatten(), -0.01), "|b", markeredgewidth=0.2, alpha=0.5
+        Y_norm.flatten(), 
+        np.full_like(Y_norm.flatten(), -0.01), "|b", markeredgewidth=0.2, alpha=0.5
         )
     plt.plot(
-        Y_rs.flatten(), np.full_like(Y_rs.flatten(), -0.02), "|r", markeredgewidth=0.2, alpha=0.5
+        Y_rs.flatten(), 
+        np.full_like(Y_rs.flatten(), -0.02), "|r", markeredgewidth=0.2, alpha=0.5
         )
     plt.legend(loc="upper right")
     plt.ylim([0., 4.])
