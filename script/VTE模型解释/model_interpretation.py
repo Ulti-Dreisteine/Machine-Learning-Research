@@ -55,25 +55,10 @@ if __name__ == "__main__":
     # 模型解释 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ################################################################################################
     
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer(X_test)  # shape=(sample_size, feature, label)
-    y_pred = model.predict_proba(X_test)
+    explainer = shap.Explainer(model)
+    # shap_values = explainer.shap_values(X_train)
+    shap_values = explainer(X_test)
     
-    np.abs(shap_values.values.sum(1) + shap_values.base_values - y_pred).max()
+    # shap.plots.waterfall(shap_values[0])
+    shap.waterfall_plot(shap_values[1][:, 0], max_display=30)
     
-    # # 创建Explainer示例用于计算SHAP值
-    # explainer = shap.TreeExplainer(model)
-    # shap_values = explainer(X_test)
-    
-    # # shap.summary_plot(shap_values, X_test)
-    
-    # # 1. beeswarm + bar图
-    # plt.figure(figsize=(6, 6))
-    # shap.plots.beeswarm(shap_values, max_display=30, show=False)
-    # plt.tight_layout()
-    # # plt.savefig(f"{BASE_DIR}/case_TTF_prediction/img/beeswarm.png", dpi=450)
-
-    # plt.figure(figsize=(6, 6))
-    # shap.plots.bar(shap_values, max_display=30, show=False)
-    # plt.tight_layout()
-    # # plt.savefig(f"{BASE_DIR}/case_TTF_prediction/img/bar.png", dpi=450)
