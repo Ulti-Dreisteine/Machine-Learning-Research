@@ -81,32 +81,27 @@ def show_pdfs(Y, pdfs):
 def resample(Y, Y_pdfs, m: float=4., max_rounds: int=10000, n_samples=None):
     N = Y.shape[0]
     idxs = np.arange(N)
-    
+
     idxs_rs, Y_rs, weights_rs = np.array([]), np.array([]), np.array([])
     k = 0
-    
+
     for i in range(max_rounds):
         idx_rand = np.random.choice(idxs)  # 从原分布中随机抽样
-        
+
         y, pdf = Y[idx_rand], Y_pdfs[idx_rand]
-        
-        if i == 0:
-            pass
-        else:
+
+        if i != 0:
             alpha = 1. / (pdf * m)  # 接受率, 等于预期采样分布密度除以原分布密度; 这里设定的分布为均匀分布
             if np.random.random() < alpha:  # 接受新样本, TODO 这一步有问题需要优化
                 idxs_rs = np.append(idxs_rs, idx_rand)
                 Y_rs = np.append(Y_rs, y)
                 weights_rs = np.append(weights_rs, pdf)
-                
+
                 k += 1
-                
+
                 # 达到样本规模则中止循环
                 if k == n_samples:
                     break
-            else:
-                continue
-    
     return idxs_rs.astype(int), Y_rs, weights_rs
 
 
@@ -128,6 +123,7 @@ def train_test_split(X, y, seed: int = None, test_ratio=0.2):
     return X[train_index], X[test_index], y[train_index], y[test_index]
 
 
+# sourcery skip: pandas-avoid-inplace
 if __name__ == "__main__":
     
     ################################################################################################
