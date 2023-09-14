@@ -13,7 +13,7 @@ Created on 2023/09/14 11:31:22
 
 from scipy import stats
 import numpy as np
-import arviz as az
+# import arviz as az
 import sys
 import os
 
@@ -62,6 +62,7 @@ if __name__ == "__main__":
         x_obs_series = np.append(x_obs_series, y_obs)
 
     # plt.plot(np.arange(len(x_series)), x_series, c="k", lw=0.6)
+    plt.figure(figsize=(5, 5))
     plt.scatter(np.arange(len(x_obs_series)), x_obs_series, marker="o", s=6, c="w", edgecolors="k", lw=0.6)
     # plt.show()
 
@@ -81,7 +82,9 @@ if __name__ == "__main__":
         # 观测值
         y_obs = x_obs_series[loc + 1]
         x_range = [y_obs - 50, y_obs + 50]
-        particles = np.linspace(x_range[0], x_range[1], n_particles)
+        
+        if loc == 0:
+            particles = np.linspace(x_range[0], x_range[1], n_particles)
 
         # 前向并计算权重
         weights = np.array([])
@@ -106,10 +109,10 @@ if __name__ == "__main__":
             insert_idx = np.argwhere(probs_sort == num)[0][0]
             particles_resampled = np.append(particles_resampled, particles[insert_idx])
 
-        # 更新粒子
-        particles = particles_resampled
+        x_filtered.append(np.mean(particles))
         
-        # TODO: 预测下一时刻的N个粒子
+        # 更新粒子: 预测下一时刻的N个粒子
+        particles = cal_sys_output(particles_resampled) + sys_noise
         
         # >>>>>>>>
         # for _ in range(pf_rounds):
@@ -139,10 +142,15 @@ if __name__ == "__main__":
         #     # 更新粒子
         #     particles = particles_resampled
 
-        x_filtered.append(np.mean(particles))
-        az.stats.
-
-    plt.plot(x_filtered, linewidth=0.5)
+    xx = np.arange(len(x_filtered))
+    yy = cal_sys_output(xx)
+    
+    plt.plot(xx, yy, "--", c="k", linewidth=2)
+    plt.plot(x_filtered, linewidth=2)
+    plt.xlabel("$t$")
+    plt.ylabel("$x$")
+    plt.grid(True, linewidth=0.5)
+    plt.savefig("img/离散迭代滤波结果.png", dpi=450)
     plt.show()
         
     
