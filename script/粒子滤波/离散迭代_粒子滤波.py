@@ -10,7 +10,7 @@ from setting import plt
 
 
 def cal_sys_output(x):
-    return x + 1
+    return x + np.log2(x)
 
 
 def _get_accum_weights(weights):
@@ -25,7 +25,7 @@ def _get_accum_weights(weights):
 
 def gen_data(sys_noise_std, obs_noise_std, N):
     """生成模拟数据"""
-    x_init = 1.1
+    x_init = 5.1
     x_obs_init = x_init + np.random.normal(0, obs_noise_std)
     
     x_series = np.array([x_init])          # 状态值
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     # ---- 产生模拟样本 ------------------------------------------------------------------------------
 
     # 噪声参数
-    sys_noise_std = 0.1
+    sys_noise_std = 3
     obs_noise_std = 10
     
     N = 100
@@ -73,9 +73,9 @@ if __name__ == "__main__":
     # ---- 粒子滤波 ---------------------------------------------------------------------------------
     
     n_particles = 1000
-    sys_noise_std = 0.1
+    sys_noise_std = 3
     obs_noise_std = 10
-    x_range = [-500, 500]  # NOTE: 需要同时涵盖样本和外推样本
+    x_range = [10, 300]  # NOTE: 需要同时涵盖样本和外推样本
     
     x_filtered = []
     for loc in range(N - 1):
@@ -127,16 +127,17 @@ if __name__ == "__main__":
     
     # 真实关系    
     xx = np.arange(N + N_pred)
-    yy = cal_sys_output(xx)
+    # yy = cal_sys_output(xx)
+    yy, _ = gen_data(0, 0, N + N_pred)
     
     x_pred, x_pred_std = np.array(x_pred), np.array(x_pred_std)
     
     plt.figure(figsize=(5, 5))
-    plt.scatter(np.arange(N), x_obs_series, marker="o", s=6, c="w", edgecolors="k", lw=0.6)
-    plt.plot(xx, yy, "--", c="k", linewidth=2)
-    plt.plot(x_filtered, linewidth=2)
+    plt.scatter(np.arange(N), x_obs_series, marker="o", s=6, c="w", edgecolors="k", lw=0.6, zorder=0)
+    plt.plot(xx, yy, "--", c="k", linewidth=2, zorder=-1)
+    plt.plot(x_filtered, linewidth=2, zorder=1)
     # plt.plot(np.arange(N, N + N_pred), x_pred, linewidth=2, color="r")
-    plt.fill_between(np.arange(N, N + N_pred), x_pred - 3 * x_pred_std, x_pred + 3 * x_pred_std, alpha=0.3)
+    plt.fill_between(np.arange(N, N + N_pred), x_pred - 3 * x_pred_std, x_pred + 3 * x_pred_std, alpha=0.6, zorder=1)
     plt.xlabel("$t$")
     plt.ylabel("$x$")
     plt.grid(True, linewidth=0.5, alpha=0.5)
