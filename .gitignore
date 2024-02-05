@@ -29,3 +29,8 @@ mod/logs/
 trash/
 *.pyc
 tmp/
+
+
+RUL*.txt
+train*.txt
+test*.txt
