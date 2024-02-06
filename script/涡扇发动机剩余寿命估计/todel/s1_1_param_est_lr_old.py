@@ -14,17 +14,20 @@ Created on 2024/02/05 15:36:53
 __doc__ = """
     如果：
     
-    [x_{t+1} - b, dx_{t+1}]^T = [[1, 1], [a, 1]] \cdot [x_{t} - b, dx_{t}]^T 
+    [x_{t+1} - b, dx_{t+1}]^T = [[1, 1], [a, 1]] \cdot [x_{t} - b, dx_{t}]^T + [eps_1, eps_2]^T
     
     则有：
     
-    dx_{t+1} = a * x_{t} + dx_{t} - a * b
+    dx_{t+1} = a * x_{t} + dx_{t} - a * b + eps_2
     
     则建立贝叶斯参数估计模型 (x_{t}, dx_{t}) ~ dx_{t+1} 即可获得 a、b 系数值
     """
 
 import pandas as pd
 import numpy as np
+import arviz as az
+import pymc as pm
+import pytensor
 import sys
 import os
 
@@ -74,17 +77,62 @@ if __name__ == "__main__":
     # 构建样本
     x_t = arr[: -2].copy()
     dx_t = arr[1: -1].copy() - arr[: -2].copy()
-    dx_tt = arr[2:].copy() - arr[: -2].copy()
+    dx_tt = arr[2:].copy() - arr[1: -1].copy()
     
     X = np.c_[x_t, dx_t]
     y = dx_tt
 
     # ---- 贝叶斯参数估计 ----------------------------------------------------------------------------
     
-    # 基于X和y的观测数据，通过参数估计获得 a、b 系数值
+    vars2eval = ["a", "b"]
     
-    # model = LinearRegression(fit_intercept=True)
-    # model.fit(X, y)
+    with pm.Model() as model:
+        a = pm.Normal("a", mu=1.0, sigma=0.1)
+        b = pm.Normal("b", mu=1300.0, sigma=100.0)
+        
+        
+        mu = pm.Deterministic("mu", a * x_t + dx_t - a * b)
+        
+        _ = pm.Normal(
+            "observed",
+            mu=mu, 
+            sigma=2, 
+            observed=dx_tt)
+        
+        step = pm.NUTS()
+        trace = pm.sample(10000, chains=1, tune=2000, step=step)
+        
+        az.summary(trace, var_names=vars2eval)
+        az.plot_posterior(trace, var_names=vars2eval)
+        
+    # 总结后验
+    az.plot_trace(
+        trace,
+        var_names=vars2eval,
+        compact=True,
+        combined=True)
+    plt.tight_layout()
+    plt.show()
     
+    # ---- 结果验证 ---------------------------------------------------------------------------------
+    
+    # plt.figure()
+    # ppc = pm.sample_posterior_predictive(trace, model, random_seed=42, progressbar=False)
+    # az.plot_ppc(ppc)
+    # plt.show()
+    
+    a = 0.043
+    b = 1402
+    
+    y_true = dx_tt
+    y_pred = a * x_t + dx_t - a * b
+    
+    # NOTE: 此结果显示线性回归模型存在系统误差，所以下文采用机器学习模型拟合
+    plt.figure(figsize=(5, 5))
+    plt.scatter(y_true, y_pred, s=3, alpha=0.6)
+    plt.scatter(y_true, y_pred - y_true, s=3, alpha=0.6)
+    plt.xlim([-20, 20])
+    plt.ylim([-20, 20])
+    plt.show()
     
     

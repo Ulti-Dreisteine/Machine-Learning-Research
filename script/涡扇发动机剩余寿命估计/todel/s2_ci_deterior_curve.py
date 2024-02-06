@@ -33,7 +33,7 @@ def get_final_x_samples(data: pd.DataFrame, x_col: str) -> np.ndarray:
 
 
 # 机理参数
-A = np.array([[1, 1], [0.0001, 1]])  # TODO: 参数估计
+A = np.array([[1, 1], [0.47, 1]])  # 参数提醒: 参数估计
 B = np.array([[1, 0]])
 
 
@@ -87,18 +87,18 @@ if __name__ == "__main__":
     # ---- 提取目标设备指标数据 -----------------------------------------------------------------------
     
     arr = data[data["unit_nb"] == unit_nb][x_col].values.reshape(1, -1)  # type: np.ndarray
-    arr = arr[:, :100]
-    arr -= 1400.0
+    arr = arr[:, :140]
+    arr -= 1407.0
     
     # ---- 基于粒子滤波的CI曲线估计 --------------------------------------------------------------------
     
     N = arr.shape[1]
     
-    n_marg_particles = 41  # 各边际上的颗粒数
-    sys_noise_std = [0.01, 0.01]  # TODO: 参数估计
-    obs_noise_std = 1.
+    n_marg_particles = 51  # 各边际上的颗粒数
+    sys_noise_std = [0.36, 5.6]     # 参数提醒: 参数估计
+    obs_noise_std = 3               # 参数提醒: 参数估计
     
-    x_range = [[-10, 100], [0.0, 1.0]]  # NOTE: 需要涵盖样本
+    x_range = [[-10, 100], [-10.0, 10.0]]  # NOTE: 需要涵盖样本
     x_grids = np.meshgrid(
         np.linspace(x_range[0][0], x_range[0][1], n_marg_particles),
         np.linspace(x_range[1][0], x_range[1][1], n_marg_particles))
@@ -120,6 +120,7 @@ if __name__ == "__main__":
         
         # 前向并计算权重
         weights = np.array([])
+        b = np.array([[1400], [0]])
         for xi in particles:
             xi = xi.reshape(2, 1)
             sys_noise = np.random.normal(0, sys_noise_std)
@@ -150,11 +151,12 @@ if __name__ == "__main__":
     
     plt.plot(x_filtered[0, :].flatten())
     plt.plot(arr[0, :].flatten())
+    plt.ylim([-5, 15])
     plt.show()
         
     # ---- 进行外推 ---------------------------------------------------------------------------------
     
-    N_pred = 100
+    N_pred = 50
     x_pred, x_std_pred = [], []
     for _ in range(N_pred):
         sys_noise = np.vstack((
@@ -181,14 +183,14 @@ if __name__ == "__main__":
     #     range(x_series.shape[1]), x_series[0, :], marker="o", s=12, c="w", edgecolors="k", lw=0.6, 
     #     zorder=2)
     plt.plot(range(N - 1), x_filtered[0, :], "b-", zorder=1)
-    # plt.plot(range(N - 1, N + N_pred - 1), x_pred[:, 0], "b--", zorder=1)
+    plt.plot(range(N - 1, N + N_pred - 1), x_pred[:, 0], "b--", zorder=1)
     plt.xlabel("time step $t$")
     plt.ylabel("$x_{1,t}$")
     
     # 各粒子的轨迹
     for i in range(n_marg_particles ** 2):
         plt.plot([p[i, 0] for p in particles_lst], c="grey", alpha=0.05, lw=0.3, zorder=-2)
-    # plt.ylim([-15, 10])
+    plt.ylim([-10, 50])
     plt.grid(True, linewidth=0.5, alpha=0.5)
     
     plt.subplot(2, 1, 2)
@@ -196,14 +198,14 @@ if __name__ == "__main__":
     #     range(x_series.shape[1]), x_series[1, :], marker="o", s=12, c="w", edgecolors="k", lw=0.6,
     #     zorder=2)
     plt.plot(range(N - 1), x_filtered[1, :], "b-", zorder=1)
-    # plt.plot(range(N - 1, N + N_pred - 1), x_pred[:, 1], "b--", zorder=1)
+    plt.plot(range(N - 1, N + N_pred - 1), x_pred[:, 1], "b--", zorder=1)
     plt.xlabel("time step $t$")
     plt.ylabel("$x_{2,t}$")
     
     # 各粒子的轨迹
     for i in range(n_marg_particles ** 2):
         plt.plot([p[i, 1] for p in particles_lst], c="grey", alpha=0.05, lw=0.3, zorder=-2)
-    # plt.ylim([-0.8, 0.8])
+    # plt.ylim([0, 15])
     plt.grid(True, linewidth=0.5, alpha=0.5)
     
     plt.tight_layout()
