@@ -59,9 +59,9 @@ if __name__ == "__main__":
     
     assert final_life_data is not None
     
-    # 查看对应指标分布
+    # 查看对应指标寿命终点分布
     label = "s_4"
-    sns.distplot(init_life_data[label])
-    sns.distplot(final_life_data[label])
+    sns.displot(init_life_data[label])
+    sns.displot(final_life_data[label])
     plt.show()
     
