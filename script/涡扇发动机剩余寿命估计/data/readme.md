@@ -1,10 +1,9 @@
-| 子数据集 | FD001 | FD002 | FD003 | FD004 |
-| --- | --- | --- | --- | --- |
-| 工作条件数量 |  1  |  6  |  1  |  6  |
-| 故障模式数量 |  1  |  1  |  2  |  2  |
-| 训练集样本数 | 100 | 260 | 100 | 249 |
-| 测试集样本数 | 100 | 259 | 100 | 248 |
-
+| 子数据集     | FD001 | FD002 | FD003 | FD004 |
+| ------------ | ----- | ----- | ----- | ----- |
+| 工作条件数量 | 1     | 6     | 1     | 6     |
+| 故障模式数量 | 1     | 1     | 2     | 2     |
+| 训练集样本数 | 100   | 260   | 100   | 249   |
+| 测试集样本数 | 100   | 259   | 100   | 248   |
 
 实验场景
 
@@ -14,12 +13,23 @@
 
 The data are provided as a zip-compressed text file with 26 columns of numbers, separated by **spaces**. Each row is a snapshot of data taken during a single operational cycle, each column is a different variable. The columns correspond to:
 
-1)	unit number             # 发动机编号
-2)	time, in cycles         # 时间，以工作循环数计
-3)	operational setting 1   # 操作设置 1
-4)	operational setting 2   # 操作设置 2
-5)	operational setting 3   # 操作设置 3
-6)	sensor measurement  1   # 传感器 1
-7)	sensor measurement  2   # 传感器 2
+1.  unit number # 发动机编号
+
+2.  time, in cycles # 时间，以工作循环数计
+
+3.  operational setting 1 # 操作设置 1
+
+4.  operational setting 2 # 操作设置 2
+
+5.  operational setting 3 # 操作设置 3
+
+6.  sensor measurement 1 # 传感器 1
+
+7.  sensor measurement 2 # 传感器 2
     ...
-26)	sensor measurement  26  # 传感器 26
+
+8.  sensor measurement 26 # 传感器 26
+
+## 数据集下载
+
+<https://www.kaggle.com/datasets/behrad3d/nasa-cmaps?resource=download>
