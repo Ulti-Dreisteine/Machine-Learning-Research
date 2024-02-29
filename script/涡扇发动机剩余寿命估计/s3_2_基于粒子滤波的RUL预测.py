@@ -71,19 +71,19 @@ def estimate_params(t_series: np.ndarray, obs_samples: np.ndarray) -> tuple[floa
         
         # MCMC采样
         step = pm.NUTS()
-        trace = pm.sample(5000, chains=4, tune=1000, step=step)
+        trace = pm.sample(5000, chains=3, tune=1000, step=step)
         
         az.summary(trace, var_names=params2est, round_to=3)
     
     # 画图
-    plt.figure(figsize=(6, 8))
+    # plt.figure(figsize=(6, 8))
     
-    for i, param in enumerate(params2est):
-        ax = plt.subplot(4, 1, i + 1)
-        az.plot_forest(trace, var_names=[param], combined=False, figsize=(6, 4), show=False, ax=ax)
-        plt.xticks(np.round(plt.xticks()[0], 4))
+    # for i, param in enumerate(params2est):
+    #     ax = plt.subplot(4, 1, i + 1)
+    #     az.plot_forest(trace, var_names=[param], combined=False, figsize=(6, 4), show=False, ax=ax)
+    #     plt.xticks(np.round(plt.xticks()[0], 4))
     
-    plt.tight_layout()
+    # plt.tight_layout()
     
     # MAP估计
     map_estimate = pm.find_MAP(model=model)
@@ -135,9 +135,6 @@ if __name__ == "__main__":
     # ---- 载入实际数据 ------------------------------------------------------------------------------
     
     data = load_batch_test_data()
-    obs_samples = load_unit_test_data(data, 1, "s_4")[:]
-    
-    t_series = np.arange(len(obs_samples))
     
     # ---- 设定参数 ---------------------------------------------------------------------------------
     
@@ -148,17 +145,23 @@ if __name__ == "__main__":
     
     finallife_x_samples = get_finallife_x_samples(data, x_col)
     
+    plt.figure()
     plt.hist(finallife_x_samples, bins=10, density=True)
     
     # ---- 提取目标设备指标数据 -----------------------------------------------------------------------
     
-    obs_samples = load_unit_test_data(data, unit_nb, x_col)[: 140]  # NOTE: 这里只观测前140个样本
+    obs_samples = load_unit_test_data(data, unit_nb, x_col)[: 60]  # NOTE: 这里只观测前140个样本
     t_series = np.arange(len(obs_samples))
     N = len(t_series)
     
     # ---- 参数估计 ---------------------------------------------------------------------------------
     
-    # a_map, b_map, c_map, sigma_obs_map = estimate_params(t_series, obs_samples)
+    recal = True
+    
+    if recal:
+        a_map, b_map, c_map, sigma_obs_map = estimate_params(t_series, obs_samples)
+    else:
+        a_map, b_map, c_map, sigma_obs_map = 0.001184, 1400.4486, -0.01703, 3.4064
     
     # ---- 基于粒子滤波的CI曲线估计 --------------------------------------------------------------------
     
@@ -166,126 +169,141 @@ if __name__ == "__main__":
     这里通过粒子滤波而非参数估计获得所有的参数a、b、c、sigma_obs的估计值
     """
     
-    n_marg_pts = 9  # 各边际上的颗粒数
-    p_ranges = [[-0.001, 0.002], [1300., 1500.], [-0.1, 0.1], [0.1, 10.]]  # 参数a、b、c、sigma_obs范围
+    n_marg_pts = 51  # 各边际上的颗粒数
+    x_ranges = [[1395, 1450], [-0.1, 0.1]]  # 参数a、b、c、sigma_obs范围
     
-    p_grids = np.meshgrid(
-        *[np.linspace(p_range[0], p_range[1], n_marg_pts) for p_range in p_ranges]
-        )
+    x_grids = np.meshgrid(
+        *[np.linspace(x_range[0], x_range[1], n_marg_pts) for x_range in x_ranges]
+    )
     
-    init_pts = np.c_[*[p_grids[i].flatten() for i in range(len(p_ranges))]]
+    # 根据离散化网格初始化粒子集
+    init_pts = np.c_[*[x_grids[i].flatten() for i in range(len(x_ranges))]]
     
     # 逐时间步迭代
     pts_step_lst = []
+    x_ft = None
     
     # TODO: 状态变量: a, x, dx, sigma
     # 第0步：a, b, c, sigma
-    # 第t>=1步：a, x_t, dx_t, sigma
+    # 第 t >= 1 步：a, x_t, dx_t, sigma
     # 给出 t - 1 -> t 的迭代关系，进而计算权重，进而进行重采样
     
     for step in range(N):  # loc是当前位置时间步
         print(f"step = {step}, \ttotal = {N} \r", end="")
         
-        # 根据离散化网格初始化粒子集
         pts_rs: np.ndarray
         
+        # 获取当前步的粒子集
         if step == 0:
             pts = init_pts
         else:
-            pts = pts_rs
+            pts = pts_step_lst[-1]  # NOTE: 上一步重采样后的粒子集
         
-        # 记录此时间步上的粒子集
-        pts_step_lst.append(pts)
+        # 当前步状态值
+        x_pts, dx_pts = pts[:, 0], pts[:, 1]
 
-        # 当前步粒子集
-        a_pts, x_pts, dx_pts, sigma_pts = pts[:, 0], pts[:, 1], pts[:, 2], pts[:, 3]
-        
         # 计算该步的预测状态
         if step == 0:
-            x_pred = x_pts
-            dx_pred = dx_pts
+            x_pred, dx_pred = x_pts, dx_pts
         else:
-            # TODO: 改成前后两步状态迭代的格式
-            # t = t_series[step]
-            # x_pred = a_pts * t * (t - 1) / 2 + t * c_pts + b_pts
-            x_pred = ...
+            x_pred, dx_pred = x_pts + dx_pts, dx_pts + a_map # 上一步重采样后粒子的迭代
         
-        # 观测值
+        # 当前步观测值
         x_obs = obs_samples[step]
         
         # 计算所有粒子的权重
-        w_pts = stats.norm.pdf(x_obs, x_pred, sigma_pts)
+        w_pts = stats.norm.pdf(x_obs, x_pred, sigma_obs_map)
+        
+        # 更新粒子
+        pts_udt = np.c_[x_pred, dx_pred]
         
         # 重采样
-        pts_rs = resample(pts, w_pts)
+        pts_rs = resample(pts_udt, w_pts)
         
-        # break
+        # 记录此时间步上的粒子集
+        pts_step_lst.append(pts_rs)
         
-        
-        
-        
-        
+        # 记录本环节输入状态值期望 E[x_sys]
+        Ex = np.mean(pts_rs, axis=0).reshape(1, 2)
+        x_ft = Ex if x_ft is None else np.vstack((x_ft, Ex))
     
-    # A = ...
-    # B = ...
+    # 画图
+    plt.figure()
+    plt.plot(obs_samples, label="obs")
+    plt.plot(x_ft[:, 0], label="filtered")
+        
+    # ---- 进行外推 ---------------------------------------------------------------------------------
     
-    # obs_samples = obs_samples.reshape(1, -1)
-    # N = obs_samples.shape[1]
+    N_pred = 140
+    x_ext, x_std_ext = [], []
+    init_pts = pts_step_lst[-1]
+    pts_ext_lst = []
     
-    # n_marg_pts = 51           # 各边际上的颗粒数
-    # sys_noise_std = 0.0             # 系统误差
-    # obs_noise_std = sigma_obs_map   # 参数提醒: 参数估计
+    for i in range(N_pred):
+        if i == 0:
+            pts = init_pts
+        else:
+            pts = pts_ext_lst[-1]
+        
+        # 上一步状态值
+        x_pts, dx_pts = pts[:, 0], pts[:, 1]
+        
+        # 上一步重采样后粒子的迭代
+        x_pred, dx_pred = x_pts + dx_pts, dx_pts + a_map
+        
+        # 更新粒子
+        pts_udt = np.c_[x_pred, dx_pred]
+        pts_ext_lst.append(pts_udt)
+        
+        x_ext.append(np.mean(pts_udt, axis=0))  # 本环节输入状态值期望 E[x_sys]
+        x_std_ext.append(np.std(pts_udt, axis=0))
     
-    # x_range = [[-10, 100]]          # NOTE: 需要涵盖样本
+    x_ext, x_std_ext = np.array(x_ext), np.array(x_std_ext)
     
-    # x_grids = np.meshgrid(
-    #     np.linspace(x_range[0][0], x_range[0][1], n_marg_pts)
-    #     )
+    # ---- 画图 -------------------------------------------------------------------------------------
     
-    # x_filtered = None
-    # pts_step_lst = []
+    final_ci = 1431  # 最终寿命阈值
     
-    # for loc in range(N - 1):
-    #     print(f"loc = {loc}, \ttotal = {N - 1} \r", end="")
+    # 总体分布
+    plt.figure(figsize=(5, 6))
+    
+    plt.subplot(2, 1, 1)
+    plt.scatter(
+        range(len(obs_samples)), obs_samples, marker="o", s=12, c="w", edgecolors="k", lw=0.6, 
+        zorder=2, label="obs. samples")
+    plt.plot(range(N), x_ft[:, 0], "b-", zorder=1, label="filtered")
+    plt.plot(range(N, N + N_pred), x_ext[:, 0], "r--", zorder=1, label="extrapolated")
+    plt.xlabel("number of cycles $t$")
+    plt.ylabel("CI, $x_{1,t}$")
+    
+    # 各粒子的轨迹
+    for i in range(n_marg_pts ** 2):
+        plt.plot([p[i, 0] for p in pts_step_lst], c="grey", alpha=0.003, lw=0.3, zorder=-2)
         
-    #     # 根据离散化网格初始化粒子集
-    #     if loc == 0:
-    #         pts = np.c_[x_grids[0].flatten()]
-        
-    #     pts_step_lst.append(pts)
-        
-    #     # 输出观测值
-    #     z_obs = obs_samples[:, loc + 1]
-        
-    #     # 前向并计算权重 
-    #     weights = np.array([])
-        
-    #     b = np.array([[1400]])
-        
-    #     for xi in pts:
-    #         xi = xi.reshape(2, 1)
-    #         sys_noise = np.random.normal(0, sys_noise_std)
-    #         obs_noise = np.random.normal(0, obs_noise_std)
-
-    #         # 预测：前向计算
-    #         yi = np.dot(A, xi) + sys_noise.reshape(2, 1)
-    #         zi = np.dot(B, yi)
-
-    #         # 校正：根据输出与观测的匹配程度，计算各粒子的重要度权重 wi = p(y_obs|xi)
-    #         wi = stats.norm.pdf(z_obs.flatten(), zi.flatten(), obs_noise_std)[0]
-    #         weights = np.append(weights, wi)
-            
-    #     # 重要性采样
-    #     pts_resampled = resample(pts, weights)
-    #     assert pts_resampled is not None
-        
-    #     # 记录本环节输入状态值期望 E[x_sys]
-    #     a = np.mean(pts_resampled, axis=0).reshape(2, 1)
-    #     x_filtered = a if x_filtered is None else np.hstack((x_filtered, a))
-        
-    #     # 更新粒子: 预测下一时刻的N个粒子
-    #     sys_noise = np.vstack((
-    #         np.random.normal(0, sys_noise_std[0], n_marg_pts ** 2),
-    #         np.random.normal(0, sys_noise_std[1], n_marg_pts ** 2)
-    #     ))
-    #     pts = np.dot(A, pts_resampled.T).T + sys_noise.T
+    plt.fill_between(
+        range(N, N + N_pred), x_ext[:, 0] - 2 * x_std_ext[:, 0], x_ext[:, 0] + 2 * x_std_ext[:, 0], 
+        color="red", alpha=0.3, zorder=-1)
+    
+    plt.hlines(final_ci, 0, N + N_pred, color="black", linestyle="--", label="CI threshold")
+    plt.grid(True, linewidth=0.5, alpha=0.5)
+    plt.legend(loc="upper left", fontsize=10)
+    
+    plt.subplot(2, 1, 2)
+    plt.plot(range(N), x_ft[:, 1], "b-", zorder=1, label="filtered")
+    plt.plot(range(N, N + N_pred), x_ext[:, 1], "r--", zorder=1, label="extrapolated")
+    plt.legend(loc="upper left", fontsize=10)
+    plt.xlabel("number of cycles $t$")
+    plt.ylabel("$\Delta$CI, $x_{2,t}$")
+    
+    # 各粒子的轨迹
+    for i in range(n_marg_pts ** 2):
+        plt.plot([p[i, 1] for p in pts_step_lst], c="grey", alpha=0.003, lw=0.3, zorder=-2)
+    
+    plt.fill_between(
+        range(N, N + N_pred), x_ext[:, 1] - 2 * x_std_ext[:, 1], x_ext[:, 1] + 2 * x_std_ext[:, 1], 
+        color="red", alpha=0.3, zorder=-1)
+    
+    plt.grid(True, linewidth=0.5, alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig("img/设备退化曲线.png", dpi=450)
