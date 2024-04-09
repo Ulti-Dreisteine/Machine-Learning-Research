@@ -34,3 +34,6 @@ tmp/
 RUL*.txt
 train*.txt
 test*.txt
+
+*.png
+*.pdf
