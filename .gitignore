@@ -35,5 +35,5 @@ RUL*.txt
 train*.txt
 test*.txt
 
-*.png
+# *.png
 *.pdf
